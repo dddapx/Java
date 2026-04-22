@@ -1,9 +1,9 @@
 package br.mackenzie.ps2.veiculos.controller;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,34 +16,25 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.mackenzie.ps2.veiculos.model.Veiculo;
+import br.mackenzie.ps2.veiculos.repository.VeiculoRepository;
 
 @RestController
 @RequestMapping("/api/veiculos")
 public class VeiculoController {
 	
-	private static List<Veiculo> veiculos = new ArrayList<>();
-	private static Long proximoId = 1L;
-	
-	static {
-		// Dados iniciais para teste
-		veiculos.add(new Veiculo(1L, "Toyota", "Corolla", 2022, "ABC1234", "Preto"));
-		veiculos.add(new Veiculo(2L, "Honda", "Civic", 2023, "XYZ9876", "Branco"));
-		proximoId = 3L;
-	}
+	@Autowired
+	private VeiculoRepository veiculoRepository;
 	
 	// GET - Listar todos os veículos
 	@GetMapping
 	public ResponseEntity<List<Veiculo>> listarTodos() {
-		return ResponseEntity.ok(veiculos);
+		return ResponseEntity.ok(veiculoRepository.findAll());
 	}
 	
 	// GET - Buscar veículo por ID
 	@GetMapping("/{id}")
 	public ResponseEntity<Veiculo> buscarPorId(@PathVariable Long id) {
-		Optional<Veiculo> veiculo = veiculos.stream()
-			.filter(v -> v.getId().equals(id))
-			.findFirst();
-		
+		Optional<Veiculo> veiculo = veiculoRepository.findById(id);
 		return veiculo.map(ResponseEntity::ok)
 			.orElseGet(() -> ResponseEntity.notFound().build());
 	}
@@ -51,10 +42,7 @@ public class VeiculoController {
 	// GET - Buscar veículo por placa
 	@GetMapping("/placa/{placa}")
 	public ResponseEntity<Veiculo> buscarPorPlaca(@PathVariable String placa) {
-		Optional<Veiculo> veiculo = veiculos.stream()
-			.filter(v -> v.getPlaca().equalsIgnoreCase(placa))
-			.findFirst();
-		
+		Optional<Veiculo> veiculo = veiculoRepository.findByPlacaIgnoreCase(placa);
 		return veiculo.map(ResponseEntity::ok)
 			.orElseGet(() -> ResponseEntity.notFound().build());
 	}
@@ -62,17 +50,14 @@ public class VeiculoController {
 	// POST - Criar novo veículo
 	@PostMapping
 	public ResponseEntity<Veiculo> criar(@RequestBody Veiculo veiculo) {
-		veiculo.setId(proximoId++);
-		veiculos.add(veiculo);
-		return ResponseEntity.status(HttpStatus.CREATED).body(veiculo);
+		Veiculo veiculoSalvo = veiculoRepository.save(veiculo);
+		return ResponseEntity.status(HttpStatus.CREATED).body(veiculoSalvo);
 	}
 	
 	// PUT - Atualizar veículo existente
 	@PutMapping("/{id}")
 	public ResponseEntity<Veiculo> atualizar(@PathVariable Long id, @RequestBody Veiculo veiculoAtualizado) {
-		Optional<Veiculo> veiculoExistente = veiculos.stream()
-			.filter(v -> v.getId().equals(id))
-			.findFirst();
+		Optional<Veiculo> veiculoExistente = veiculoRepository.findById(id);
 		
 		if (veiculoExistente.isPresent()) {
 			Veiculo veiculo = veiculoExistente.get();
@@ -81,7 +66,7 @@ public class VeiculoController {
 			veiculo.setAno(veiculoAtualizado.getAno());
 			veiculo.setPlaca(veiculoAtualizado.getPlaca());
 			veiculo.setCor(veiculoAtualizado.getCor());
-			return ResponseEntity.ok(veiculo);
+			return ResponseEntity.ok(veiculoRepository.save(veiculo));
 		}
 		
 		return ResponseEntity.notFound().build();
@@ -90,12 +75,10 @@ public class VeiculoController {
 	// DELETE - Deletar veículo
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deletar(@PathVariable Long id) {
-		boolean removido = veiculos.removeIf(v -> v.getId().equals(id));
-		
-		if (removido) {
+		if (veiculoRepository.existsById(id)) {
+			veiculoRepository.deleteById(id);
 			return ResponseEntity.noContent().build();
 		}
-		
 		return ResponseEntity.notFound().build();
 	}
 	
